@@ -1,13 +1,14 @@
 #include "blocks.h"
-#include <X11/Xlib.h>
 #include <signal.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
 #define SIGPLUS SIGRTMIN
 #define SIGMINUS SIGRTMIN
 #define LENGTH(X) (sizeof(X) / sizeof(X[0]))
+#define CMDLENGTH 50
 #define MIN(a, b) ((a < b) ? a : b)
 #define STATUSLENGTH (LENGTH(blocks) * CMDLENGTH + 1)
 
@@ -19,11 +20,8 @@ void sighandler(int signum);
 int getstatus(char *str, char *last);
 void statusloop();
 void termhandler();
-void setroot();
-
-static Display *dpy;
-static int screen;
-static Window root;
+void pstdout();
+static void (*writestatus)() = pstdout;
 
 static char statusbar[LENGTH(blocks)][CMDLENGTH] = {0};
 static char statusstr[2][STATUSLENGTH];
@@ -45,9 +43,9 @@ void getcmd(const Block *block, char *output) {
     }
     // only chop off newline if one is present at the end
     i = output[i - 1] == '\n' ? i - 1 : i;
-    if (delim[0] != '\0')
+    if (delim[0] != '\0') {
         strncpy(output + i, delim, delimLen);
-    else
+    } else
         output[i++] = '\0';
     pclose(cmdf);
 }
@@ -87,12 +85,12 @@ int getstatus(char *str, char *last) {
     return strcmp(str, last); // 0 if they are the same
 }
 
-void setroot() {
+void pstdout() {
     if (!getstatus(statusstr[0],
-                   statusstr[1])) // Only set root if text has changed.
+                   statusstr[1])) // Only write out if text has changed.
         return;
-    XStoreName(dpy, root, statusstr[0]);
-    XFlush(dpy);
+    printf("%s\n", statusstr[0]);
+    fflush(stdout);
 }
 
 void statusloop() {
@@ -101,16 +99,16 @@ void statusloop() {
     getcmds(-1);
     while (1) {
         getcmds(i++);
-        setroot();
+        writestatus();
         if (!statusContinue)
             break;
-        sleep(1);
+        sleep(1.0);
     }
 }
 
 void sighandler(int signum) {
     getsigcmds(signum - SIGPLUS);
-    setroot();
+    writestatus();
 }
 
 void termhandler() { statusContinue = 0; }
@@ -120,20 +118,10 @@ int main(int argc, char **argv) {
         if (!strcmp("-d", argv[i]))
             strncpy(delim, argv[++i], delimLen);
     }
-
-    dpy = XOpenDisplay(NULL);
-    if (!dpy) {
-        fprintf(stderr, "dwmblocks: Failed to open display\n");
-        return 0;
-    }
-    screen = DefaultScreen(dpy);
-    root = RootWindow(dpy, screen);
-
     delimLen = MIN(delimLen, strlen(delim));
     delim[delimLen++] = '\0';
     signal(SIGTERM, termhandler);
     signal(SIGINT, termhandler);
     statusloop();
-    XCloseDisplay(dpy);
     return 0;
 }

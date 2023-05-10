@@ -10,9 +10,9 @@ typedef struct {
 static const Block blocks[] = {
     /*Icon Command Update Interval Update Signal*/
     {"", "echo", 0, 0},
-    {"", "mprisst", 1, 0},
-    {"", "volst", 0, 10},
-    {"", "datest", 5, 0},
+    {"", "mprisst.clj", 1, 0},
+    {"", "volst.clj", 0, 10},
+    {"", "datest.clj", 5, 0},
     {"", "echo", 0, 0},
 };
 
